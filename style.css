@@ -1,0 +1,65 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, Arial, sans-serif; color: #111; }
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+header { padding: 8px 12px; border-bottom: 1px solid #ddd; display: flex; gap: 12px; align-items: center; }
+header h1 { margin: 0; font-size: 18px; }
+.view-buttons button { margin-right: 6px; }
+
+main { flex: 1; display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
+#left { position: relative; }
+#canvas-wrap { position: absolute; inset: 0; }
+
+#right { border-left: 1px solid #eee; overflow: auto; padding: 12px; }
+#controls { display: grid; gap: 10px; }
+#controls label { display: grid; font-size: 14px; gap: 4px; }
+#controls input { padding: 6px 8px; }
+#controls .row { display: flex; gap: 8px; }
+.readout { display: grid; gap: 6px; background: #fafafa; padding: 8px; border: 1px solid #eee; border-radius: 6px; }
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  #right { border-left: none; border-top: 1px solid #eee; }
+}
+
+/* Panels (secciones visuales) */
+.panel {
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fcfcfc;
+}
+.panel legend {
+  padding: 0 6px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Tabla 2 vueltas */
+.table-wrap {
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 280px;
+  background: #fff;
+}
+#table2 {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+#table2 thead th {
+  position: sticky; top: 0;
+  background: #f2f4f7;
+  border-bottom: 1px solid #e6e6e6;
+  padding: 6px 8px;
+  text-align: right;
+}
+#table2 tbody td {
+  border-bottom: 1px dashed #efefef;
+  padding: 4px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+#table2 tbody tr:nth-child(odd) { background: #fafafa; }

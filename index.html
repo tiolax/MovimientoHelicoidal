@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Movimiento helicoidal</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Movimiento helicoidal</h1>
+      <div class="view-buttons">
+        <button data-view="persp">Perspectiva</button>
+        <button data-view="xy">XY</button>
+        <button data-view="yz">YZ</button>
+        <button data-view="zx">ZX</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="left">
+        <div id="canvas-wrap"></div>
+      </section>
+
+      <aside id="right">
+        <form id="controls">
+          <h2>Parámetros (editables)</h2>
+
+<fieldset class="panel">
+  <legend>Parámetros de inicio</legend>
+  <label>z₀ (m)
+    <input name="z0" type="number" step="0.1" value="20">
+  </label>
+</fieldset>
+
+<fieldset class="panel">
+  <legend>Parámetros de la partícula</legend>
+  <label>Radio R (m)
+    <input name="R" type="number" step="0.1" value="100">
+  </label>
+
+  <label>Δz por vuelta (m)
+    <input name="dzPerTurn" type="number" step="0.1" value="10">
+  </label>
+
+  <label>Fase φ₀ (rad)
+    <input name="phi0" type="number" step="0.01" value="0">
+  </label>
+
+  <label>Periodo T por vuelta (s)
+    <input name="Tinput" type="number" step="0.1" value="30">
+  </label>
+
+  <label>Velocidad angular ω (rad/s)
+    <input name="omega" type="number" step="0.000001" value="0.209439">
+    <small style="display:block;opacity:0.7;">Puedes editar T <i>o</i> ω. Si cambias ω, T se recalcula automáticamente.</small>
+  </label>
+</fieldset>
+
+<fieldset class="panel">
+  <legend>Parámetros del entorno (tiempo)</legend>
+  <label>Duración (s)
+    <input name="tmax" type="number" step="0.1" value="80">
+  </label>
+  <label>t objetivo (s)
+    <input name="targetT" type="number" step="0.1" value="45">
+  </label>
+</fieldset>
+
+<fieldset class="panel">
+  <legend>Ajustes del canvas</legend>
+  <label>Escala de dibujo (m por unidad)
+    <input name="mPerUnit" type="number" step="0.1" value="10">
+    <small style="display:block;opacity:0.7;">Ej.: 10 ⇒ 100 m se dibujan como 10 unidades y caben en pantalla</small>
+  </label>
+</fieldset>
+
+<fieldset class="panel">
+  <legend>Controles</legend>
+  <div class="row">
+    <button type="button" id="play">⏵︎ / ⏸︎</button>
+    <button type="button" id="reset">Reiniciar</button>
+    <button type="button" id="export">Exportar CSV</button>
+  </div>
+
+  <div class="row" style="margin-top:0.5rem;">
+    <button type="button" id="calc">Calcular instante y tabla</button>
+  </div>
+</fieldset>
+
+          <h2>Análisis instantáneo</h2>
+          <div class="readout">
+            <div><b>t</b>: <span id="ro-t">0</span> s</div>
+            <div><b>|v|</b>: <span id="ro-speed">0</span> m/s</div>
+            <div><b>|a|</b>: <span id="ro-acc">0</span> m/s²</div>
+            <div><b>Periodo</b> T = <span id="ro-T">0</span> s</div>
+            <div><b>Paso</b> p = <span id="ro-p">0</span> m/vuelta</div>
+          </div>
+
+          <!-- Salidas nuevas (si existen en el DOM se llenan; si no, consola) -->
+          <h3>Resultado en t objetivo</h3>
+          <pre id="instant" style="background:#f6f8fa;padding:8px;border:1px solid #ddd;white-space:pre-wrap;"></pre>
+
+          <h3>Tabla (2 vueltas)</h3>
+<div class="table-wrap">
+  <table id="table2">
+    <thead>
+      <tr>
+        <th>t (s)</th>
+        <th>x (m)</th><th>y (m)</th><th>z (m)</th>
+        <th>vx (m/s)</th><th>vy (m/s)</th><th>vz (m/s)</th>
+        <th>ax (m/s²)</th><th>ay (m/s²)</th><th>az (m/s²)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+        </form>
+      </aside>
+    </main>
+  </div>
+
+<!-- Cargador de GLTF para los modelitos -->
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
