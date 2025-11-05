@@ -80,12 +80,15 @@
   <legend>Controles</legend>
   <div class="row">
     <button type="button" id="play">⏵︎ / ⏸︎</button>
-    <button type="button" id="reset">Reiniciar</button>
-    <button type="button" id="export">Exportar CSV</button>
+    <button type="button" id="reset">Reiniciar Animacion</button>
+    <button id="resetParams" type="button">↺ Reiniciar parámetros</button>
+   
   </div>
 
   <div class="row" style="margin-top:0.5rem;">
     <button type="button" id="calc">Calcular instante y tabla</button>
+    <button type="button" id="export">Exportar CSV</button>
+    <button id="infoBtn" type="button">ℹ︎ Info</button>
   </div>
 </fieldset>
 
@@ -121,6 +124,25 @@
       </aside>
     </main>
   </div>
+<!-- Modal Info -->
+<dialog id="infoDlg">
+  <h3>Parámetros — significado</h3>
+  <ul style="line-height:1.4">
+    <li><b>R</b>: Radio de la hélice [m].</li>
+    <li><b>T</b>: Numero de segundos que tarda en dar una vuelta.</li>
+    <li><b>Δz por vuelta</b>: Ascenso por vuelta [m].</li>
+    <li><b>Fase φ₀</b>: Ángulo inicial [rad].</li>
+    <li><b>z0</b>: Altura inicial [m].</li>
+    <li><b>mPerUnit</b>: Metros representados por 1 unidad 3D.</li>
+    <li><b>dt</b>: Paso de integración (simulación).</li>
+    <li><b>tmax</b>: Tiempo máximo simulado.</li>
+    <li><b>targetT</b>: Instante para el cálculo puntual.</li>
+  </ul>
+  <form method="dialog">
+    <button id="infoClose">Cerrar</button>
+  </form>
+</dialog>
+
 
 <!-- Cargador de GLTF para los modelitos -->
 

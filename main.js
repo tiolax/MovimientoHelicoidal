@@ -9,11 +9,11 @@ import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders
 //////---------------------------------------------/////////  
 
 ///Variable editables
-const params = {
+const DEFAULTS = {
   // Editables "del problema":
   R: 100,            // radio [m]
   Tinput: 30,        // periodo por vuelta [s]
-  dzPerTurn: 2,     // ascenso por vuelta [m] (en Tinput segundos)
+  dzPerTurn: 20,     // ascenso por vuelta [m] (en Tinput segundos)
   phi0: 0,           // ángulo inicial [rad]
   z0: 20,            // altura inicial [m]
 
@@ -28,6 +28,8 @@ const params = {
   targetT: 45,       // tiempo a consultar
   playing: true, projection: "persp"
 };
+
+const params = { ...DEFAULTS };
 
 //derivar ω y vz a partir de T y Δz por vuelt
 function applyDerived(p = params){
@@ -93,7 +95,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xFFFFFF);
 
 const perspCam = new THREE.PerspectiveCamera(50, wrap.clientWidth / wrap.clientHeight, 0.01, 1000);
-perspCam.position.set(8, 6, 10);
+perspCam.position.set(22, 8, 15);
 
 perspCam.up.set(0, 0, 1);
 
@@ -140,7 +142,7 @@ const lblZ = makeAxisLabel('Z'); lblZ.position.set(0, 0, AXIS_LEN*1.1);
 scene.add(lblX, lblY, lblZ);
 
 // Grillas en los tres planos, con ligeras transparencias
-const GRID_SIZE = 20, GRID_DIV = 20;
+const GRID_SIZE = 30, GRID_DIV = 30;
 
 // Plano XY (suelo si Z es arriba)
 const gridXY = new THREE.GridHelper(GRID_SIZE, GRID_DIV, 0x000000, 0x000000);
@@ -164,9 +166,63 @@ gridZX.material.transparent = true;
 scene.add(gridZX);
 
 
-// Partícula (esfera pequeña)
-let cargarModelo = true;
+function updateGridScale() {
+  const s = 10 / params.mPerUnit; // 1 celda = 10 m
+  gridXY.scale.set(s, s, s);
+  gridYZ.scale.set(s, s, s);
+  gridZX.scale.set(s, s, s);
+}
+// Etiquetas numéricas en el grid XY
+const gridLabels = new THREE.Group();
+scene.add(gridLabels);
 
+function makeTickLabel(text, scale = 0.5) {
+ const size = 210;
+ const canvas = document.createElement('canvas');
+ canvas.width = canvas.height = size;
+ const ctx = canvas.getContext('2d');
+ ctx.clearRect(0, 0, size, size);
+ ctx.font = 'bold 72px system-ui, Arial';
+ ctx.textAlign = 'center';
+ ctx.textBaseline = 'middle';
+ ctx.fillStyle = '#111';
+ ctx.fillText(text, size / 2, size / 2);
+ const tex = new THREE.CanvasTexture(canvas);
+ tex.anisotropy = 4;
+ const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+ const spr = new THREE.Sprite(mat);
+ spr.scale.set(scale, scale, scale);
+ return spr;
+}
+function updateGridLabels() { // Limpia etiquetas previas
+ while (gridLabels.children.length) gridLabels.remove(gridLabels.children[0]);
+  const s = 10 / params.mPerUnit;
+  const half = GRID_SIZE / 2;     // distancia entre líneas (1 celda = 10 m)          // 15 "celdas" a cada lado
+ const zLift = 0.001;                // evita z-fighting con el grid
+  for (let i = 1; i <= half; i++) {   const meters = i * 10;
+   // +X
+   const lx = makeTickLabel(`${meters} m`);
+   lx.position.set(i * s, 0, zLift);
+   gridLabels.add(lx);
+   // -X
+   const lnx = makeTickLabel(`${-meters} m`);
+   lnx.position.set(-i * s, 0, zLift);
+   gridLabels.add(lnx);
+   // +Y
+   const ly = makeTickLabel(`${meters} m`);
+   ly.position.set(0, i * s, zLift);
+   gridLabels.add(ly);
+   // -Y
+    const lny = makeTickLabel(`${-meters} m`);
+    lny.position.set(0, -i * s, zLift);
+    gridLabels.add(lny);
+  }
+}
+
+
+
+
+// Partícula (esfera pequeña)
 particleRoot = new THREE.Group();
 particleRoot.name = 'ParticleRoot';
 scene.add(particleRoot);
@@ -195,12 +251,16 @@ function loadModel() {
       // Añade al contenedor
       particleRoot.add(model);
 
-      // Animaciones (si el modelo trae clips)
-      if (gltf.animations && gltf.animations.length) {
-        mixer = new THREE.AnimationMixer(model);
-        const action = mixer.clipAction(gltf.animations[0]);
-        action.play();
-      }
+ console.log("Animaciones del modelo: ", gltf.animations);
+    if (gltf.animations && gltf.animations.length) {
+      mixer = new THREE.AnimationMixer(model);
+      const clip = gltf.animations[0]; // o busca por nombre: gltf.animations.find(a => a.name==="Run")
+      const action = mixer.clipAction(clip);
+      action.setLoop(THREE.LoopRepeat, Infinity); // loop infinito
+      action.clampWhenFinished = false;           // no congelar al terminar
+      action.enabled = true;
+      action.reset().play();
+    }
     },
     undefined,
     (err) => console.error('Error cargando modelo:', err)
@@ -253,19 +313,20 @@ function setProjection(mode){
     orthoCam.near = -1000;
     orthoCam.far = 1000;
 
-    const d = 100; // distancia “lejana” para orto
+    const d = 120; // distancia “lejana” para orto
+    const zOffset = params.z0; // centra la vista en la zona Z positiva donde ocurre el evento
     if(mode === "xy"){
       orthoCam.position.set(0, 0, d);
       orthoCam.up.set(0, 1, 0);
       orthoCam.lookAt(0,0,0);
     } else if(mode === "yz"){
-      orthoCam.position.set(d, 0, 0); // mirando hacia -x
-      orthoCam.up.set(0, 0, 1);       // eje Z arriba para ver Y vertical y Z horizontal
-      orthoCam.lookAt(0,0,0);
+      orthoCam.position.set(d, 0, 5); // mirando hacia -x
+      orthoCam.up.set(0, 0, 1);      
+      orthoCam.lookAt(0,0,5);
     } else if(mode === "zx"){
-      orthoCam.position.set(0, d, 0); // mirando hacia -y
+      orthoCam.position.set(0, d, 5); // mirando hacia -y
       orthoCam.up.set(0, 0, 1);       // eje Z arriba para ver Z vertical y X horizontal
-      orthoCam.lookAt(0,0,0);
+      orthoCam.lookAt(0,0,5);
     }
     orthoCam.updateProjectionMatrix();
   }
@@ -339,14 +400,56 @@ function syncParamsFromForm(evt){
 }
 
 
-form.addEventListener("input", () => {
+form.addEventListener("input", (e) => {
   syncParamsFromForm(e);
   updateReadouts(); // T y p dependen de parámetros
+  updateGridScale();
+  updateGridLabels();
 });
 
-document.getElementById("play").addEventListener("click", () => params.playing = !params.playing);
+ const playBtn = document.getElementById("play");
+ const togglePlay = () => {
+   params.playing = !params.playing;
+   playBtn.textContent = params.playing ? "⏸︎Pausar" : "⏵︎ Reanudar";
+ };
+ playBtn.addEventListener("click", togglePlay);
+ // estado inicial del texto
+ playBtn.textContent = params.playing ? "⏸︎ Pausar" : "⏵︎ Reanudar";
 document.getElementById("reset").addEventListener("click", resetSim);
 document.getElementById("export").addEventListener("click", exportCSV);
+
+// Reiniciar parámetros (no solo reiniciar la sim)
+const resetParamsBtn = document.getElementById("resetParams");
+if (resetParamsBtn) {
+  resetParamsBtn.addEventListener("click", () => {
+    Object.assign(params, DEFAULTS);
+    // Refleja en el formulario
+    for (const el of form.querySelectorAll('input[name]')) {
+      const k = el.name;
+      if (k in params) el.value = params[k];
+    }
+    applyDerived(params);
+    // Sincroniza ω y campos derivados visibles
+    const wIn = form.querySelector('input[name="omega"]');
+    if (wIn) wIn.value = params.omega.toFixed(6);
+    // Reaplica escala y etiquetas
+    updateGridScale();
+    updateGridLabels();
+    // Reinicia la sim y cámara actual
+    resetSim();
+    setProjection(params.projection === "persp" ? "persp" : params.projection);
+  });
+}
+
+// Modal Info
+const infoBtn = document.getElementById("infoBtn");
+const infoDlg = document.getElementById("infoDlg");
+if (infoBtn && infoDlg) {
+  infoBtn.addEventListener("click", () => infoDlg.showModal());
+  // El botón de cerrar ya funciona vía <form method="dialog">
+}
+
+
 
 document.querySelectorAll(".view-buttons button").forEach(btn => {
   btn.addEventListener("click", () => setProjection(btn.dataset.view));
@@ -367,8 +470,6 @@ if(btnCalc){
     buildTableTwoTurns();
   });
 }
-
-
 
 //////---------------------------------------------/////////
 //////---- BLOQUE D: SIMULACION--------------------/////////
@@ -393,14 +494,12 @@ particleRoot.position.set(
   s0.z / params.mPerUnit
 );
 
-
   /*
   particle.position.set(
   s0.x / params.mPerUnit,
   s0.y / params.mPerUnit,
   s0.z / params.mPerUnit
 )*/
-
 
   updateReadouts(0, s0);
   computeInstant();
@@ -436,9 +535,6 @@ if (v.lengthSq() > 1e-12) {
   const q = new THREE.Quaternion().setFromUnitVectors(modelForward, v);
   particleRoot.quaternion.copy(q);
 }
-
-
-
 
 
   // agregar punto a la trayectoria
@@ -548,6 +644,8 @@ function animate(now){
 
   controls.update();
 
+if (mixer) mixer.update(dtReal * (params.playing ? 1 : 0));
+
   if(params.playing && t < params.tmax){
     // usamos dt de parámetros para control numérico
     const steps = Math.max(1, Math.round(dtReal / Math.max(1e-6, params.dt)));
@@ -561,8 +659,10 @@ function animate(now){
 // --------- Init ---------
 syncParamsFromForm();
 resetSim();
-setProjection("persp");
+setProjection("yz");
 onResize();
+updateGridScale();
+updateGridLabels();
 animate(performance.now());
 
 
