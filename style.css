@@ -1,13 +1,16 @@
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, Arial, sans-serif; color: #111; }
+body { margin: 0; font-family: system-ui, Arial, sans-serif; color: #111; overflow-x: hidden; }
 #app { display: flex; flex-direction: column; height: 100vh; }
+#app { max-width: 1400px; margin: 0 auto; }
 
 header { padding: 8px 12px; border-bottom: 1px solid #ddd; display: flex; gap: 12px; align-items: center; }
 header h1 { margin: 0; font-size: 18px; }
 .view-buttons button { margin-right: 6px; }
 
-main { flex: 1; display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
-#left { position: relative; }
+main { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) clamp(280px, 30vw, 360px); min-height: 0; }
+#left { position: relative; min-width: 0; }
+#right { border-left: 1px solid #eee; overflow: auto; padding: 12px; min-width: 0; } /* mueve esta regla sobre la previa */
+
 #canvas-wrap { position: absolute; inset: 0; }
 
 #right { border-left: 1px solid #eee; overflow: auto; padding: 12px; }
@@ -20,6 +23,7 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 320px; min-height: 0; 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; }
   #right { border-left: none; border-top: 1px solid #eee; }
+  #left { min-height: 50vh; }
 }
 
 /* Panels (secciones visuales) */

@@ -1,8 +1,10 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-
 import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
+import { EffectComposer } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
+import { OutlinePass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/OutlinePass.js';
 
 //////---------------------------------------------/////////
 //////---- BLOQUE A: ESTADOS Y UTILIDADES----------/////////
@@ -44,11 +46,10 @@ function applyDerived(p = params){
 applyDerived();
 
 ///----Modelo Aguila---//
-// Nodo que reemplaza a la partícula y alojará el modelo
-let particleRoot;      // Group que moveremos/rotaremos
-let model = null;      // La malla del modelo
-let mixer = null;      // Para animaciones del modelo (si las tiene)
-let modelForward = new THREE.Vector3(0, 1, 0); // Eje "frente" del modelo (ajusta si hace falta)
+let particleRoot;     
+let model = null;  
+let mixer = null;    
+let modelForward = new THREE.Vector3(0, 1, 0);
 ///------////
 
 const history = []; // {t,x,y,z,vx,vy,vz,ax,ay,az}
@@ -81,11 +82,16 @@ function pitch(p=params){ return (2*Math.PI * p.vz) / (p.omega || 1e-9); } // av
 //////---------------------------------------------/////////
 //////---- BLOQUE B: THREE.JS BASE-----------------/////////
 //////---------------------------------------------/////////  
+
+
+
 const wrap = document.getElementById("canvas-wrap");
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(wrap.clientWidth, wrap.clientHeight);
 wrap.appendChild(renderer.domElement);
+
+
 
 // Haz que todo el mundo tenga Z como "arriba"
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -103,11 +109,16 @@ perspCam.up.set(0, 0, 1);
 const orthoCam = new THREE.OrthographicCamera(); // valores se ajustan en resize/proyección
 let activeCam = perspCam;
 
+
 const controls = new OrbitControls(perspCam, renderer.domElement);
 controls.enableDamping = true;
+controls.minPolarAngle = 0.0;             
+controls.maxPolarAngle = Math.PI * 0.499;
+
 
 controls.object.up.set(0, 0, 1);
 controls.update();
+
 
 // === Ejes y grillas ===
 const AXIS_LEN = 3; ///Hacer este valor editable desde el UI
@@ -134,6 +145,7 @@ function makeAxisLabel(text) {
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
   const spr = new THREE.Sprite(mat);
   spr.scale.set(0.4, 0.4, 0.4);
+  spr.userData.text = text; 
   return spr;
 }
 const lblX = makeAxisLabel('X'); lblX.position.set(AXIS_LEN*1.1, 0, 0);
@@ -142,7 +154,7 @@ const lblZ = makeAxisLabel('Z'); lblZ.position.set(0, 0, AXIS_LEN*1.1);
 scene.add(lblX, lblY, lblZ);
 
 // Grillas en los tres planos, con ligeras transparencias
-const GRID_SIZE = 30, GRID_DIV = 30;
+const GRID_SIZE = 40, GRID_DIV = 40;
 
 // Plano XY (suelo si Z es arriba)
 const gridXY = new THREE.GridHelper(GRID_SIZE, GRID_DIV, 0x000000, 0x000000);
@@ -185,20 +197,21 @@ function makeTickLabel(text, scale = 0.5) {
  ctx.font = 'bold 72px system-ui, Arial';
  ctx.textAlign = 'center';
  ctx.textBaseline = 'middle';
- ctx.fillStyle = '#111';
+ ctx.fillStyle = '#ffffffff';
  ctx.fillText(text, size / 2, size / 2);
  const tex = new THREE.CanvasTexture(canvas);
  tex.anisotropy = 4;
  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
  const spr = new THREE.Sprite(mat);
  spr.scale.set(scale, scale, scale);
+ spr.userData.text = text; 
  return spr;
 }
 function updateGridLabels() { // Limpia etiquetas previas
  while (gridLabels.children.length) gridLabels.remove(gridLabels.children[0]);
   const s = 10 / params.mPerUnit;
   const half = GRID_SIZE / 2;     // distancia entre líneas (1 celda = 10 m)          // 15 "celdas" a cada lado
- const zLift = 0.001;                // evita z-fighting con el grid
+ const zLift = 0.05;                // evita z-fighting con el grid
   for (let i = 1; i <= half; i++) {   const meters = i * 10;
    // +X
    const lx = makeTickLabel(`${meters} m`);
@@ -216,10 +229,22 @@ function updateGridLabels() { // Limpia etiquetas previas
     const lny = makeTickLabel(`${-meters} m`);
     lny.position.set(0, -i * s, zLift);
     gridLabels.add(lny);
+
+
+// +Z
+const lz = makeTickLabel(`${meters} m`);
+lz.position.set(0, 0, i * s);
+gridLabels.add(lz);
+// -Z (opcional)
+const lnz = makeTickLabel(`${-meters} m`);
+lnz.position.set(0, 0, -i * s);
+gridLabels.add(lnz);
+
+
+
+
   }
 }
-
-
 
 
 // Partícula (esfera pequeña)
@@ -251,7 +276,7 @@ function loadModel() {
       // Añade al contenedor
       particleRoot.add(model);
 
- console.log("Animaciones del modelo: ", gltf.animations);
+
     if (gltf.animations && gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);
       const clip = gltf.animations[0]; // o busca por nombre: gltf.animations.find(a => a.name==="Run")
@@ -280,15 +305,65 @@ scene.add(particle);*/
 const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 1.0);
 scene.add(hemi);
 
+
+// === SKY & GROUND ============================================================
+// Carga de texturas
+const texLoader = new THREE.TextureLoader();
+
+// 1) Fondo de cielo (imagen equirectangular o simple)
+const skyTex = texLoader.load('textures/sky.jpg', () => {
+  // Gestión de color moderna (r160): usa colorSpace
+  skyTex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = skyTex; // establece imagen como fondo del canvas
+});
+
+// 2) Ground en el plano XY (Z es arriba)
+const groundTex = texLoader.load('textures/ground.jpg', (t) => {
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(64, 64); // repite para alta resolución aparente
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+});
+const groundMat = new THREE.MeshStandardMaterial({
+  map: groundTex, roughness: 1.0, metalness: 0.0
+});
+
+// PlaneGeometry por defecto es XY con normal +Z → perfecto para "suelo" con Z arriba
+// Plane “decorativo” para vista superior (un pelo bajo el grid)
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), groundMat);
+ground.position.set(0, 0, -0.002);
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Añadimos volumen bajo el plano para que se vea en YZ/ZX:
+const SOIL_W = 2000, SOIL_H = 2000, SOIL_DEPTH = 400;  // profundidad hacia -Z
+const soilSidesMat = new THREE.MeshStandardMaterial({ color: 0x888577, roughness: 1.0, metalness: 0.0 });
+// Orden materiales en Box: [px, nx, py, ny, pz, nz]
+const soilMats = [
+  soilSidesMat, soilSidesMat, soilSidesMat, soilSidesMat,
+  groundMat,        // pz  (tapa superior = mismo “ground”)
+  soilSidesMat      // nz  (fondo)
+];
+const soil = new THREE.Mesh(new THREE.BoxGeometry(SOIL_W, SOIL_H, SOIL_DEPTH), soilMats);
+// Coloca la “tapa” del box coincidiendo con el ground (z≈0)
+soil.position.set(0, 0, -SOIL_DEPTH/2 - 0.002);
+soil.receiveShadow = true;
+scene.add(soil);
+// ============================================================================
+
+
+
+
 // Trayectoria (línea dinámica)
 const maxPoints = 5000;
 const positions = new Float32Array(maxPoints * 3);
 const trajGeom = new THREE.BufferGeometry();
 trajGeom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 trajGeom.setDrawRange(0, 0);
+
 const trajectory = new THREE.Line(
   trajGeom,
-  new THREE.LineBasicMaterial({ color: 0x0d47a1, linewidth: 1 })
+  new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
 );
 scene.add(trajectory);
 
@@ -335,7 +410,7 @@ function setProjection(mode){
 function fitOrthoSize(){
   // Mantén una escala razonable en orto: 20 unidades a lo ancho aprox.
   const aspect = wrap.clientWidth / wrap.clientHeight;
-  const worldWidth = 20;
+  const worldWidth = 24;
   const worldHeight = worldWidth / aspect;
   return { w: worldWidth, h: worldHeight };
 }
@@ -405,6 +480,7 @@ form.addEventListener("input", (e) => {
   updateReadouts(); // T y p dependen de parámetros
   updateGridScale();
   updateGridLabels();
+  computeTargetAnalysis();
 });
 
  const playBtn = document.getElementById("play");
@@ -417,6 +493,68 @@ form.addEventListener("input", (e) => {
  playBtn.textContent = params.playing ? "⏸︎ Pausar" : "⏵︎ Reanudar";
 document.getElementById("reset").addEventListener("click", resetSim);
 document.getElementById("export").addEventListener("click", exportCSV);
+
+
+// On/Off de grillas y etiquetas
+const toggleGridsBtn = document.getElementById("toggleGrids");
+if (toggleGridsBtn) {
+  toggleGridsBtn.addEventListener("click", () => {
+    const newVis = !gridXY.visible;
+    gridXY.visible = gridYZ.visible = gridZX.visible = newVis;
+    gridLabels.visible = newVis;
+    toggleGridsBtn.textContent = newVis ? "Ocultar grids" : "Mostrar grids";
+  });
+  // estado inicial del texto
+  toggleGridsBtn.textContent = gridXY.visible ? "Ocultar grids" : "Mostrar grids";
+}
+
+
+// --- Ocultar Visuales (suelo, cielo, etiquetas, trayectoria) ---
+const toggleVisualsBtn = document.getElementById("toggleVisuals");
+let visualsVisible = true;
+
+if (toggleVisualsBtn) {
+  toggleVisualsBtn.addEventListener("click", () => {
+    visualsVisible = !visualsVisible;
+
+    // 1️⃣ Cielo y suelo
+    if (skyTex)
+      scene.background = visualsVisible ? skyTex : new THREE.Color(0xffffff);
+    ground.visible = visualsVisible;
+    if (typeof soil !== "undefined") soil.visible = visualsVisible;
+
+    // 2️⃣ Trayectoria
+    trajectory.material.color.set(visualsVisible ? 0xffffff : 0x0d47a1);
+
+    // 3️⃣ Etiquetas de metros (gridLabels)
+    gridLabels.children.forEach((label) => {
+      if (label.isSprite && label.material.map) {
+        const canvas = label.material.map.image;
+        const ctx = canvas.getContext("2d");
+        const size = canvas.width;
+        const text = label.material.name || label.userData.text || ""; // guardamos el texto
+        ctx.clearRect(0, 0, size, size);
+        ctx.font = "bold 72px system-ui, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        // 👇 aquí cambiamos el color del número
+        ctx.fillStyle = visualsVisible ? "#ffffffff" : "#000000ff";
+        ctx.fillText(text, size / 2, size / 2);
+        label.material.map.needsUpdate = true;
+      }
+    });
+
+    // 4️⃣ Texto del botón
+    toggleVisualsBtn.textContent = visualsVisible
+      ? "Ocultar visuales"
+      : "Mostrar visuales";
+  });
+}
+
+
+
+
+
 
 // Reiniciar parámetros (no solo reiniciar la sim)
 const resetParamsBtn = document.getElementById("resetParams");
@@ -466,8 +604,9 @@ window.addEventListener("keydown", (e) => {
 const btnCalc = document.getElementById("calc");
 if(btnCalc){
   btnCalc.addEventListener("click", () => {
+    computeTargetAnalysis();
     computeInstant();
-    buildTableTwoTurns();
+    buildTableUntilNow();
   });
 }
 
@@ -557,11 +696,28 @@ positions[i+2] = s.z / params.mPerUnit;
 function updateReadouts(curT=t, s=stateAt(t)){
   const speed = Math.hypot(s.vx, s.vy, s.vz);
   const acc = Math.hypot(s.ax, s.ay, s.az);
-  readouts.t.textContent = curT.toFixed(3);
-  readouts.speed.textContent = speed.toFixed(4);
-  readouts.acc.textContent = acc.toFixed(4);
-  readouts.T.textContent = period().toFixed(4);
-  readouts.p.textContent = pitch().toFixed(4);
+
+
+// También mostramos el análisis vectorial en el bloque "readout" con el mismo formato que "instant"
+try {
+  const pre = document.getElementById("readout");
+  if (pre) {
+    const vec = (x, y, z, n = 3) => `⟨${x.toFixed(n)}, ${y.toFixed(n)}, ${z.toFixed(n)}⟩`;
+    // Conserva la convención previa del cálculo instantáneo:
+    const axDisplay = -s.ax; // quita el signo si quieres el valor físico directo
+    const text =
+      `t = ${curT.toFixed(3)} s\n` +
+      `r(t) = ${vec(s.x, s.y, s.z)} m\n` +
+      `v(t) = ${vec(s.vx, s.vy, s.vz)} m/s\n` +
+      `a(t) = ${vec(axDisplay, s.ay, s.az)} m/s²`;
+    pre.textContent = text;
+  }
+} catch (e) {
+  // noop
+}
+
+
+
 }
 
 
@@ -569,40 +725,67 @@ function updateReadouts(curT=t, s=stateAt(t)){
 function computeInstant(){
   const tQ = params.targetT;
   const s = stateAt(tQ);
-  const speed = Math.hypot(s.vx, s.vy, s.vz);
-  const acc   = Math.hypot(s.ax, s.ay, s.az);
 
-  // Mostrar si existen elementos; si no, log
-  const el = document.getElementById("instant");
+  const el = document.getElementById("readout");
+  const vec = (x,y,z,n=3)=>`⟨${x.toFixed(n)}, ${y.toFixed(n)}, ${z.toFixed(n)}⟩`;
+
+  // ax mostrado con signo invertido (requisito previo)
+  const axDisplay = -s.ax;
+
   const text =
-    `t=${tQ.toFixed(3)} s\n` +
-    `pos = (${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)}) m\n` +
-    `vel = (${s.vx.toFixed(3)}, ${s.vy.toFixed(3)}, ${s.vz.toFixed(3)}) m/s | |v|=${speed.toFixed(4)}\n` +
-    `acc = (${s.ax.toFixed(3)}, ${s.ay.toFixed(3)}, ${s.az.toFixed(3)}) m/s² | |a|=${acc.toFixed(4)}`;
-  if(el) el.textContent = text; else console.log(text);
+    `t = ${tQ.toFixed(3)} s\n` +
+    `r(t) = ${vec(s.x, s.y, s.z)} m\n` +
+    `v(t) = ${vec(s.vx, s.vy, s.vz)} m/s\n` +
+    `a(t) = ${vec(axDisplay, s.ay, s.az)} m/s²`;
 
-  return {tQ, s, speed, acc};
+  if (el) el.textContent = text; else console.log(text);
+
+  return { tQ, s };
 }
 
+function computeTargetAnalysis(tQ = Number(params.targetT)) {
+  // 1) Obtener el estado en t objetivo
+  const s = stateAt(tQ); // Debe devolver: { x,y,z, vx,vy,vz, ax,ay,az }
+
+  // 2) Helpers
+  const vec = (x,y,z,n=3)=>`⟨${x.toFixed(n)}, ${y.toFixed(n)}, ${z.toFixed(n)}⟩`;
+  const speed  = Math.hypot(s.vx, s.vy, s.vz);
+  const accMag = Math.hypot(s.ax, s.ay, s.az);
+
+  // Mantiene tu convención previa (ax con signo invertido). Si no la quieres, usa s.ax.
+  const axDisplay = -s.ax;
+
+  // 3) Render a #instant (panel "Resultado en t objetivo")
+  const el = document.getElementById("instant");
+  if (el) {
+    const text =
+      `t objetivo = ${tQ.toFixed(3)} s\n` +
+      `r(t) = ${vec(s.x, s.y, s.z)} m\n` +
+      `v(t) = ${vec(s.vx, s.vy, s.vz)} m/s   |v| = ${speed.toFixed(3)} m/s\n` +
+      `a(t) = ${vec(axDisplay, s.ay, s.az)} m/s²  |a| = ${accMag.toFixed(3)} m/s²`;
+    el.textContent = text;
+  }
+
+  // 4) Retornar por si quieres usar los valores en otro lado (tabla, logs, etc.)
+  return { tQ, s, speed, accMag };
+}
+
+
+
 // --- Tabla hasta 2 vueltas (también equivalen a 2 "pasos" en z) ---
-function buildTableTwoTurns(){
-  const T = period();               // basado en params.omega
-  const tEnd = 2 * T;               // dos vueltas
+function buildTableUntilNow(){
+  const tEnd = Math.floor(t); // hasta el segundo actual
   const body = document.querySelector('#table2 tbody');
   if (!body) return;
 
-  // Limpia
   body.innerHTML = '';
 
-  // Recorre en pasos de 1 s (0,1,2,...)
   const rows = [];
-  for (let k = 0; k <= Math.floor(tEnd + 1e-9); k += 1) {
-    const tt = k * 1.0;             // segundos enteros
-    const s = stateAt(tt);
-    rows.push({ t: tt, ...s });
+  for (let k = 0; k <= tEnd; k++) {
+    const s = stateAt(k);
+    rows.push({ t: k, ...s });
   }
 
-  // Inserta filas
   const toFixed = (v, n=3) => (Number.isFinite(v) ? v.toFixed(n) : '');
   for (const r of rows) {
     const tr = document.createElement('tr');
@@ -610,24 +793,9 @@ function buildTableTwoTurns(){
       `<td>${toFixed(r.t, 0)}</td>` +
       `<td>${toFixed(r.x)}</td><td>${toFixed(r.y)}</td><td>${toFixed(r.z)}</td>` +
       `<td>${toFixed(r.vx)}</td><td>${toFixed(r.vy)}</td><td>${toFixed(r.vz)}</td>` +
-      `<td>${toFixed(r.ax)}</td><td>${toFixed(r.ay)}</td><td>${toFixed(r.az)}</td>`;
+      `<td>${toFixed(-r.ax)}</td><td>${toFixed(r.ay)}</td><td>${toFixed(r.az)}</td>`;
     body.appendChild(tr);
   }
-
-  // (Opcional) descarga CSV si quieres seguir guardando
-  const header = "t,x,y,z,vx,vy,vz,ax,ay,az\n";
-  const csv = header + rows.map(r => [
-    r.t, r.x, r.y, r.z, r.vx, r.vy, r.vz, r.ax, r.ay, r.az
-  ].join(",")).join("\n");
-
-  const blob = new Blob([csv], {type: "text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "tabla_2vueltas.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-
   return rows;
 }
 
@@ -643,7 +811,10 @@ function animate(now){
   last = now;
 
   controls.update();
-
+ // Evita que la cámara en perspectiva baje de Z=0 (suelo)
+ if (activeCam === perspCam && perspCam.position.z < 0.1) {
+   perspCam.position.z = 0.1;
+ }
 if (mixer) mixer.update(dtReal * (params.playing ? 1 : 0));
 
   if(params.playing && t < params.tmax){
@@ -654,11 +825,13 @@ if (mixer) mixer.update(dtReal * (params.playing ? 1 : 0));
   }
 
   renderer.render(scene, activeCam);
+  //composer.render();
 }
 
 // --------- Init ---------
 syncParamsFromForm();
 resetSim();
+computeTargetAnalysis();
 setProjection("yz");
 onResize();
 updateGridScale();
@@ -672,14 +845,23 @@ animate(performance.now());
 /// Este bloque es meramente opcional /////
 
 function exportCSV(){
-  if(history.length === 0) return;
+  if (history.length === 0) return;
+
+  // Genera datos en intervalos de 1s
+  const rows = [];
+  for (let k = 0; k <= Math.floor(t); k++) {
+    const s = stateAt(k);
+    rows.push([k, s.x, s.y, s.z, s.vx, s.vy, s.vz, -s.ax, s.ay, s.az].map(v => v.toFixed(3)));
+  }
+
   const header = "t,x,y,z,vx,vy,vz,ax,ay,az\n";
-  const rows = history.map(s => [s.t,s.x,s.y,s.z,s.vx,s.vy,s.vz,s.ax,s.ay,s.az].join(",")).join("\n");
-  const blob = new Blob([header + rows], {type: "text/csv"});
+  const csv = header + rows.map(r => r.join(",")).join("\n");
+
+  const blob = new Blob([csv], {type: "text/csv"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "helicoide.csv";
+  a.download = "helicoide_por_segundos.csv";
   a.click();
   URL.revokeObjectURL(url);
 }

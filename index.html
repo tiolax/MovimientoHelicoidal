@@ -25,7 +25,7 @@
 
       <aside id="right">
         <form id="controls">
-          <h2>Parámetros (editables)</h2>
+          <h2>Simulador Moviemiento helicoidal</h2>
 
 <fieldset class="panel">
   <legend>Parámetros de inicio</legend>
@@ -82,30 +82,28 @@
     <button type="button" id="play">⏵︎ / ⏸︎</button>
     <button type="button" id="reset">Reiniciar Animacion</button>
     <button id="resetParams" type="button">↺ Reiniciar parámetros</button>
-   
+  </div>
+
+  <div class="row"  style="margin-top:0.5rem;">
+       <button type="button" id="toggleGrids">Ocultar grids</button>
+   <button type="button" id="toggleVisuals">Ocultar visuales</button>
   </div>
 
   <div class="row" style="margin-top:0.5rem;">
-    <button type="button" id="calc">Calcular instante y tabla</button>
+    <button type="button" id="calc">Calcular tabla</button>
     <button type="button" id="export">Exportar CSV</button>
     <button id="infoBtn" type="button">ℹ︎ Info</button>
   </div>
 </fieldset>
 
           <h2>Análisis instantáneo</h2>
-          <div class="readout">
-            <div><b>t</b>: <span id="ro-t">0</span> s</div>
-            <div><b>|v|</b>: <span id="ro-speed">0</span> m/s</div>
-            <div><b>|a|</b>: <span id="ro-acc">0</span> m/s²</div>
-            <div><b>Periodo</b> T = <span id="ro-T">0</span> s</div>
-            <div><b>Paso</b> p = <span id="ro-p">0</span> m/vuelta</div>
-          </div>
+          <pre id="readout" style="background:#f6f8fa;padding:8px;border:1px solid #ddd;white-space:pre-wrap;"></pre>
 
-          <!-- Salidas nuevas (si existen en el DOM se llenan; si no, consola) -->
+
           <h3>Resultado en t objetivo</h3>
           <pre id="instant" style="background:#f6f8fa;padding:8px;border:1px solid #ddd;white-space:pre-wrap;"></pre>
 
-          <h3>Tabla (2 vueltas)</h3>
+          <h3>Tabla</h3>
 <div class="table-wrap">
   <table id="table2">
     <thead>
@@ -133,10 +131,6 @@
     <li><b>Δz por vuelta</b>: Ascenso por vuelta [m].</li>
     <li><b>Fase φ₀</b>: Ángulo inicial [rad].</li>
     <li><b>z0</b>: Altura inicial [m].</li>
-    <li><b>mPerUnit</b>: Metros representados por 1 unidad 3D.</li>
-    <li><b>dt</b>: Paso de integración (simulación).</li>
-    <li><b>tmax</b>: Tiempo máximo simulado.</li>
-    <li><b>targetT</b>: Instante para el cálculo puntual.</li>
   </ul>
   <form method="dialog">
     <button id="infoClose">Cerrar</button>
