@@ -45,6 +45,9 @@ function applyDerived(p = params){
 }
 applyDerived();
 
+
+let ParticleRoot2 = null;
+
 ///----Modelo Aguila---//
 let particleRoot;     
 let model = null;  
@@ -248,11 +251,58 @@ gridLabels.add(lnz);
 
 
 // Partícula (esfera pequeña)
+const particleRoot2 = new THREE.Group();
+particleRoot2.name = 'ParticleRoot2';
+
 particleRoot = new THREE.Group();
 particleRoot.name = 'ParticleRoot';
 scene.add(particleRoot);
+scene.add(particleRoot2);
 
-function loadModel() {
+
+
+
+
+
+
+
+
+
+
+function loadModel(){
+  const base = new GLTFLoader();
+
+
+
+  base.load(
+    'models/Rocaopiedraloquesea.glb',      
+    (gltf) => {
+      model = gltf.scene;
+      model.name = 'ParticleModel';
+
+      // Ajusta escala inicial (depende de tu modelo)
+      const s = 0.165;
+      model.scale.set(s, s, s);
+        model.rotation.x = Math.PI / 2; // Y→Z
+        //model.rotation.y =Math.PI/2;
+      // Mejora visual
+      model.traverse(obj => {
+        if (obj.isMesh) {
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        }
+      });
+      // Añade al contenedor
+      particleRoot2.add(model);
+    },
+    undefined,
+    (err) => console.error('Error cargando modelo:', err)
+  );
+
+
+
+
+
   const loader = new GLTFLoader(); 
   loader.load(
     'models/Aguila2.glb',      
@@ -261,7 +311,7 @@ function loadModel() {
       model.name = 'ParticleModel';
 
       // Ajusta escala inicial (depende de tu modelo)
-      const s = 2.5; // ej.: si tu modelo viene en cm; prueba 0.01 o 0.1
+      const s = 2.5;
       model.scale.set(s, s, s);
         model.rotation.x = Math.PI / 2; // Y→Z
         model.rotation.y =Math.PI/2;
@@ -275,7 +325,6 @@ function loadModel() {
 
       // Añade al contenedor
       particleRoot.add(model);
-
 
     if (gltf.animations && gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);
@@ -291,6 +340,10 @@ function loadModel() {
     (err) => console.error('Error cargando modelo:', err)
   );
 }
+
+
+
+
 loadModel();
 
 /*const particle = new THREE.Mesh(
@@ -321,7 +374,7 @@ const skyTex = texLoader.load('textures/sky.jpg', () => {
 const groundTex = texLoader.load('textures/ground.jpg', (t) => {
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(64, 64); // repite para alta resolución aparente
+  t.repeat.set(300, 300); // repite para alta resolución aparente
   t.anisotropy = renderer.capabilities.getMaxAnisotropy();
 });
 const groundMat = new THREE.MeshStandardMaterial({
@@ -626,6 +679,11 @@ function resetSim(){
 
   const s0 = stateAt(0);
 
+
+
+
+
+
 // Ahora
 particleRoot.position.set(
   s0.x / params.mPerUnit,
@@ -655,6 +713,8 @@ function step(dt){
   s.y / params.mPerUnit,
   s.z / params.mPerUnit
 );
+
+  particleRoot2.position.set( 9.5,0,0);
    /*
  particle.position.set(
   s.x / params.mPerUnit,
@@ -793,7 +853,7 @@ function buildTableUntilNow(){
       `<td>${toFixed(r.t, 0)}</td>` +
       `<td>${toFixed(r.x)}</td><td>${toFixed(r.y)}</td><td>${toFixed(r.z)}</td>` +
       `<td>${toFixed(r.vx)}</td><td>${toFixed(r.vy)}</td><td>${toFixed(r.vz)}</td>` +
-      `<td>${toFixed(-r.ax)}</td><td>${toFixed(r.ay)}</td><td>${toFixed(r.az)}</td>`;
+      `<td>${toFixed(r.ax)}</td><td>${toFixed(r.ay)}</td><td>${toFixed(r.az)}</td>`;
     body.appendChild(tr);
   }
   return rows;
@@ -851,7 +911,7 @@ function exportCSV(){
   const rows = [];
   for (let k = 0; k <= Math.floor(t); k++) {
     const s = stateAt(k);
-    rows.push([k, s.x, s.y, s.z, s.vx, s.vy, s.vz, -s.ax, s.ay, s.az].map(v => v.toFixed(3)));
+    rows.push([k, s.x, s.y, s.z, s.vx, s.vy, s.vz, s.ax, s.ay, s.az].map(v => v.toFixed(3)));
   }
 
   const header = "t,x,y,z,vx,vy,vz,ax,ay,az\n";
