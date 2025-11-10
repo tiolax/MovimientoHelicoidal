@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Movimiento helicoidal</title>
   <link rel="stylesheet" href="/style.css" />
+
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$', '$'], ['\(', '\)']] },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script type="module" src="/main.js"></script>
+
 </head>
 <body>
   <div id="app">
@@ -127,15 +140,45 @@
   <h3>Parámetros — significado</h3>
   <ul style="line-height:1.4">
     <li><b>R</b>: Radio de la hélice [m].</li>
-    <li><b>T</b>: Numero de segundos que tarda en dar una vuelta.</li>
+    <li><b>T</b>: Número de segundos que tarda en dar una vuelta.</li>
     <li><b>Δz por vuelta</b>: Ascenso por vuelta [m].</li>
-    <li><b>Fase φ₀</b>: Ángulo inicial [rad].</li>
-    <li><b>z0</b>: Altura inicial [m].</li>
+    <li><b>Fase</b> $\,[\varphi_0]$: Ángulo inicial [rad].</li>
+    <li><b>z₀</b>: Altura inicial [m].</li>
   </ul>
+
+  <h3>Relaciones clave</h3>
+  <p>$$\omega = \frac{2\pi}{T},\qquad v_z = \frac{\Delta z}{T}$$</p>
+
+  <h3>Fórmulas del movimiento helicoidal</h3>
+  <p>Ángulo: $$\theta(t)=\omega t + \varphi_0$$</p>
+
+  <p>Posición:
+  $$\begin{aligned}
+  x(t) &= x_0 + R\cos\theta(t),\\
+  y(t) &= y_0 + R\sin\theta(t),\\
+  z(t) &= z_0 + v_z\,t\,.
+  \end{aligned}$$</p>
+
+  <p>Velocidad:
+  $$\begin{aligned}
+  v_x(t) &= -R\,\omega\,\sin\theta(t),\\
+  v_y(t) &= \phantom{-}R\,\omega\,\cos\theta(t),\\
+  v_z(t) &= v_z\,.
+  \end{aligned}$$</p>
+
+  <p>Aceleración:
+  $$\begin{aligned}
+  a_x(t) &= -R\,\omega^2\,\cos\theta(t),\\
+  a_y(t) &= -R\,\omega^2\,\sin\theta(t),\\
+  a_z(t) &= 0\,.
+  \end{aligned}$$</p>
+
   <form method="dialog">
     <button id="infoClose">Cerrar</button>
   </form>
 </dialog>
+
+
 
 
 <!-- Cargador de GLTF para los modelitos -->

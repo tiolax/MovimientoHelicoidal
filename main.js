@@ -2,9 +2,9 @@ import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
-import { EffectComposer } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
-import { OutlinePass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/OutlinePass.js';
+
+
+
 
 //////---------------------------------------------/////////
 //////---- BLOQUE A: ESTADOS Y UTILIDADES----------/////////
@@ -12,7 +12,6 @@ import { OutlinePass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postpr
 
 ///Variable editables
 const DEFAULTS = {
-  // Editables "del problema":
   R: 100,            // radio [m]
   Tinput: 30,        // periodo por vuelta [s]
   dzPerTurn: 20,     // ascenso por vuelta [m] (en Tinput segundos)
@@ -20,15 +19,13 @@ const DEFAULTS = {
   z0: 20,            // altura inicial [m]
 
   mPerUnit: 10,
-  // Derivados (se calculan con applyDerived()):
   omega: 2*Math.PI/30,  // velocidad angular [rad/s]
   vz: 10/30,            // velocidad vertical [m/s]
-
   // Simulación y consulta:
   x0: 0, y0: 0,
   dt: 0.016, tmax: 80,
   targetT: 45,       // tiempo a consultar
-  playing: true, projection: "persp"
+  playing: false, projection: "persp"
 };
 
 const params = { ...DEFAULTS };
@@ -45,17 +42,12 @@ function applyDerived(p = params){
 }
 applyDerived();
 
-
-let ParticleRoot2 = null;
-
-///----Modelo Aguila---//
 let particleRoot;     
 let model = null;  
 let mixer = null;    
 let modelForward = new THREE.Vector3(0, 1, 0);
-///------////
 
-const history = []; // {t,x,y,z,vx,vy,vz,ax,ay,az}
+const history = []; 
 let t = 0;
 
 // Posición/velocidad/aceleración paramétrica del helicoide
@@ -78,14 +70,9 @@ function stateAt(time, p=params) {
   return {x,y,z,vx,vy,vz:vzv,ax,ay,az};
 }
 
-function period(p=params){ return 2*Math.PI / Math.abs(p.omega || 1e-9); }
-function pitch(p=params){ return (2*Math.PI * p.vz) / (p.omega || 1e-9); } // avance por vuelta
-
-
 //////---------------------------------------------/////////
 //////---- BLOQUE B: THREE.JS BASE-----------------/////////
 //////---------------------------------------------/////////  
-
 
 
 const wrap = document.getElementById("canvas-wrap");
@@ -95,10 +82,8 @@ renderer.setSize(wrap.clientWidth, wrap.clientHeight);
 wrap.appendChild(renderer.domElement);
 
 
-
 // Haz que todo el mundo tenga Z como "arriba"
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
-
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xFFFFFF);
@@ -108,20 +93,21 @@ perspCam.position.set(22, 8, 15);
 
 perspCam.up.set(0, 0, 1);
 
-
 const orthoCam = new THREE.OrthographicCamera(); // valores se ajustan en resize/proyección
 let activeCam = perspCam;
-
 
 const controls = new OrbitControls(perspCam, renderer.domElement);
 controls.enableDamping = true;
 controls.minPolarAngle = 0.0;             
 controls.maxPolarAngle = Math.PI * 0.499;
 
-
 controls.object.up.set(0, 0, 1);
 controls.update();
 
+
+// Nuevo: límites de zoom (distancia cámara–target)
+controls.minDistance = 2;    // evita meterte dentro del modelo
+controls.maxDistance = 50;   // evita alejarse demasiado
 
 // === Ejes y grillas ===
 const AXIS_LEN = 3; ///Hacer este valor editable desde el UI
@@ -233,7 +219,6 @@ function updateGridLabels() { // Limpia etiquetas previas
     lny.position.set(0, -i * s, zLift);
     gridLabels.add(lny);
 
-
 // +Z
 const lz = makeTickLabel(`${meters} m`);
 lz.position.set(0, 0, i * s);
@@ -244,13 +229,9 @@ lnz.position.set(0, 0, -i * s);
 gridLabels.add(lnz);
 
 
-
-
   }
 }
 
-
-// Partícula (esfera pequeña)
 const particleRoot2 = new THREE.Group();
 particleRoot2.name = 'ParticleRoot2';
 
@@ -260,48 +241,28 @@ scene.add(particleRoot);
 scene.add(particleRoot2);
 
 
-
-
-
-
-
-
-
-
-
 function loadModel(){
   const base = new GLTFLoader();
-
-
 
   base.load(
     'models/Rocaopiedraloquesea.glb',      
     (gltf) => {
       model = gltf.scene;
       model.name = 'ParticleModel';
-
-      // Ajusta escala inicial (depende de tu modelo)
       const s = 0.165;
       model.scale.set(s, s, s);
         model.rotation.x = Math.PI / 2; // Y→Z
-        //model.rotation.y =Math.PI/2;
-      // Mejora visual
       model.traverse(obj => {
         if (obj.isMesh) {
           obj.castShadow = true;
           obj.receiveShadow = true;
         }
       });
-      // Añade al contenedor
       particleRoot2.add(model);
     },
     undefined,
     (err) => console.error('Error cargando modelo:', err)
   );
-
-
-
-
 
   const loader = new GLTFLoader(); 
   loader.load(
@@ -310,8 +271,7 @@ function loadModel(){
       model = gltf.scene;
       model.name = 'ParticleModel';
 
-      // Ajusta escala inicial (depende de tu modelo)
-      const s = 2.5;
+      const s = 1.8;
       model.scale.set(s, s, s);
         model.rotation.x = Math.PI / 2; // Y→Z
         model.rotation.y =Math.PI/2;
@@ -322,16 +282,14 @@ function loadModel(){
           obj.receiveShadow = true;
         }
       });
-
-      // Añade al contenedor
       particleRoot.add(model);
 
     if (gltf.animations && gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);
-      const clip = gltf.animations[0]; // o busca por nombre: gltf.animations.find(a => a.name==="Run")
+      const clip = gltf.animations[0];
       const action = mixer.clipAction(clip);
       action.setLoop(THREE.LoopRepeat, Infinity); // loop infinito
-      action.clampWhenFinished = false;           // no congelar al terminar
+      action.clampWhenFinished = false;
       action.enabled = true;
       action.reset().play();
     }
@@ -342,22 +300,11 @@ function loadModel(){
 }
 
 
-
-
 loadModel();
-
-/*const particle = new THREE.Mesh(
-new THREE.SphereGeometry(0.08, 32, 16),
-new THREE.MeshStandardMaterial({ color: 0x1565c0, metalness: 0.1, roughness: 0.6 })
-);
-scene.add(particle);*/
-
-
 
 // Luz
 const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 1.0);
 scene.add(hemi);
-
 
 // === SKY & GROUND ============================================================
 // Carga de texturas
@@ -374,22 +321,27 @@ const skyTex = texLoader.load('textures/sky.jpg', () => {
 const groundTex = texLoader.load('textures/ground.jpg', (t) => {
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(300, 300); // repite para alta resolución aparente
+  t.repeat.set(20, 20); // repite para alta resolución aparente
   t.anisotropy = renderer.capabilities.getMaxAnisotropy();
 });
+
+const GROUND_W = 150;       
+const GROUND_H = 150;
+
 const groundMat = new THREE.MeshStandardMaterial({
   map: groundTex, roughness: 1.0, metalness: 0.0
 });
 
 // PlaneGeometry por defecto es XY con normal +Z → perfecto para "suelo" con Z arriba
 // Plane “decorativo” para vista superior (un pelo bajo el grid)
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), groundMat);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(GROUND_W, GROUND_H), groundMat);
 ground.position.set(0, 0, -0.002);
 ground.receiveShadow = true;
 scene.add(ground);
 
+//scene.fog = new THREE.Fog(0x688CD4, 50, 100); // opcional
 // Añadimos volumen bajo el plano para que se vea en YZ/ZX:
-const SOIL_W = 2000, SOIL_H = 2000, SOIL_DEPTH = 400;  // profundidad hacia -Z
+const SOIL_W = 2000, SOIL_H = 2000, SOIL_DEPTH = 40;  // profundidad hacia -Z
 const soilSidesMat = new THREE.MeshStandardMaterial({ color: 0x888577, roughness: 1.0, metalness: 0.0 });
 // Orden materiales en Box: [px, nx, py, ny, pz, nz]
 const soilMats = [
@@ -397,16 +349,12 @@ const soilMats = [
   groundMat,        // pz  (tapa superior = mismo “ground”)
   soilSidesMat      // nz  (fondo)
 ];
-const soil = new THREE.Mesh(new THREE.BoxGeometry(SOIL_W, SOIL_H, SOIL_DEPTH), soilMats);
+const soil = new THREE.Mesh(new THREE.BoxGeometry(GROUND_W, GROUND_H, SOIL_DEPTH), soilMats);
 // Coloca la “tapa” del box coincidiendo con el ground (z≈0)
 soil.position.set(0, 0, -SOIL_DEPTH/2 - 0.002);
 soil.receiveShadow = true;
 scene.add(soil);
 // ============================================================================
-
-
-
-
 // Trayectoria (línea dinámica)
 const maxPoints = 5000;
 const positions = new Float32Array(maxPoints * 3);
@@ -421,7 +369,6 @@ const trajectory = new THREE.Line(
 scene.add(trajectory);
 
 let drawCount = 0;
-
 // --------- Proyecciones / cámaras ---------
 function setProjection(mode){
   params.projection = mode;
@@ -440,9 +387,8 @@ function setProjection(mode){
     orthoCam.bottom = -size.h/2;
     orthoCam.near = -1000;
     orthoCam.far = 1000;
-
     const d = 120; // distancia “lejana” para orto
-    const zOffset = params.z0; // centra la vista en la zona Z positiva donde ocurre el evento
+    const zOffset = params.z0; 
     if(mode === "xy"){
       orthoCam.position.set(0, 0, d);
       orthoCam.up.set(0, 1, 0);
@@ -459,7 +405,6 @@ function setProjection(mode){
     orthoCam.updateProjectionMatrix();
   }
 }
-
 function fitOrthoSize(){
   // Mantén una escala razonable en orto: 20 unidades a lo ancho aprox.
   const aspect = wrap.clientWidth / wrap.clientHeight;
@@ -467,7 +412,6 @@ function fitOrthoSize(){
   const worldHeight = worldWidth / aspect;
   return { w: worldWidth, h: worldHeight };
 }
-
 function onResize(){
   renderer.setSize(wrap.clientWidth, wrap.clientHeight);
   perspCam.aspect = wrap.clientWidth / wrap.clientHeight;
@@ -483,7 +427,6 @@ function onResize(){
   }
 }
 window.addEventListener("resize", onResize);
-
 
 //////---------------------------------------------/////////
 //////---- BLOQUE C: UI, FORMULARIOS Y EVENTOS-----/////////
@@ -506,19 +449,14 @@ function syncParamsFromForm(evt){
   }
 
   const changed = evt && evt.target ? evt.target.name : null;
-
   if (changed === "omega") {
-    // Usuario editó ω directamente: recalcular T y vz
     const w = Number(params.omega);
     const absw = Math.max(1e-9, Math.abs(w)); // evita división por 0
     params.Tinput = 2 * Math.PI / absw;
     params.vz = params.dzPerTurn / params.Tinput;
-
-    // reflejar T en el input
     const Tin = form.querySelector('input[name="Tinput"]');
     if (Tin) Tin.value = params.Tinput.toFixed(6);
   } else {
-    // Para cualquier otro cambio (incluye Tinput): derivar ω y vz desde T
     applyDerived(params);
 
     // reflejar ω en el input
@@ -526,27 +464,28 @@ function syncParamsFromForm(evt){
     if (wIn) wIn.value = params.omega.toFixed(6);
   }
 }
-
-
 form.addEventListener("input", (e) => {
   syncParamsFromForm(e);
-  updateReadouts(); // T y p dependen de parámetros
+  updateReadouts();
   updateGridScale();
   updateGridLabels();
   computeTargetAnalysis();
 });
-
  const playBtn = document.getElementById("play");
  const togglePlay = () => {
    params.playing = !params.playing;
    playBtn.textContent = params.playing ? "⏸︎Pausar" : "⏵︎ Reanudar";
  };
  playBtn.addEventListener("click", togglePlay);
- // estado inicial del texto
+
  playBtn.textContent = params.playing ? "⏸︎ Pausar" : "⏵︎ Reanudar";
 document.getElementById("reset").addEventListener("click", resetSim);
-document.getElementById("export").addEventListener("click", exportCSV);
-
+document.getElementById('export').addEventListener('click', () => {
+  // Exporta lo que se ve en la tabla #table2 a un archivo .xlsx
+  const table = document.getElementById('table2');
+  const wb = XLSX.utils.table_to_book(table, { sheet: 'Simulación' });
+  XLSX.writeFile(wb, 'simulacion.xlsx');
+});
 
 // On/Off de grillas y etiquetas
 const toggleGridsBtn = document.getElementById("toggleGrids");
@@ -561,7 +500,6 @@ if (toggleGridsBtn) {
   toggleGridsBtn.textContent = gridXY.visible ? "Ocultar grids" : "Mostrar grids";
 }
 
-
 // --- Ocultar Visuales (suelo, cielo, etiquetas, trayectoria) ---
 const toggleVisualsBtn = document.getElementById("toggleVisuals");
 let visualsVisible = true;
@@ -570,16 +508,13 @@ if (toggleVisualsBtn) {
   toggleVisualsBtn.addEventListener("click", () => {
     visualsVisible = !visualsVisible;
 
-    // 1️⃣ Cielo y suelo
     if (skyTex)
       scene.background = visualsVisible ? skyTex : new THREE.Color(0xffffff);
     ground.visible = visualsVisible;
     if (typeof soil !== "undefined") soil.visible = visualsVisible;
-
-    // 2️⃣ Trayectoria
+    particleRoot2.visible = visualsVisible;
     trajectory.material.color.set(visualsVisible ? 0xffffff : 0x0d47a1);
 
-    // 3️⃣ Etiquetas de metros (gridLabels)
     gridLabels.children.forEach((label) => {
       if (label.isSprite && label.material.map) {
         const canvas = label.material.map.image;
@@ -590,26 +525,18 @@ if (toggleVisualsBtn) {
         ctx.font = "bold 72px system-ui, Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        // 👇 aquí cambiamos el color del número
         ctx.fillStyle = visualsVisible ? "#ffffffff" : "#000000ff";
         ctx.fillText(text, size / 2, size / 2);
         label.material.map.needsUpdate = true;
       }
     });
 
-    // 4️⃣ Texto del botón
     toggleVisualsBtn.textContent = visualsVisible
       ? "Ocultar visuales"
       : "Mostrar visuales";
   });
 }
 
-
-
-
-
-
-// Reiniciar parámetros (no solo reiniciar la sim)
 const resetParamsBtn = document.getElementById("resetParams");
 if (resetParamsBtn) {
   resetParamsBtn.addEventListener("click", () => {
@@ -632,15 +559,11 @@ if (resetParamsBtn) {
   });
 }
 
-// Modal Info
 const infoBtn = document.getElementById("infoBtn");
 const infoDlg = document.getElementById("infoDlg");
 if (infoBtn && infoDlg) {
   infoBtn.addEventListener("click", () => infoDlg.showModal());
-  // El botón de cerrar ya funciona vía <form method="dialog">
 }
-
-
 
 document.querySelectorAll(".view-buttons button").forEach(btn => {
   btn.addEventListener("click", () => setProjection(btn.dataset.view));
@@ -678,33 +601,20 @@ function resetSim(){
   history.length = 0;
 
   const s0 = stateAt(0);
-
-
-
-
-
-
-// Ahora
 particleRoot.position.set(
   s0.x / params.mPerUnit,
   s0.y / params.mPerUnit,
   s0.z / params.mPerUnit
 );
-
-  /*
-  particle.position.set(
-  s0.x / params.mPerUnit,
-  s0.y / params.mPerUnit,
-  s0.z / params.mPerUnit
-)*/
+  particleRoot2.position.set( 9.5,0,0);
 
   updateReadouts(0, s0);
   computeInstant();
 }
 
-
 function step(dt){
-  t = Math.min(t + dt, params.tmax);
+  const stopAt = Math.min(params.tmax, Number(params.targetT) || params.tmax);
+t = Math.min(t + dt, stopAt);
 
   const s = stateAt(t);
 
@@ -715,28 +625,14 @@ function step(dt){
 );
 
   particleRoot2.position.set( 9.5,0,0);
-   /*
- particle.position.set(
-  s.x / params.mPerUnit,
-  s.y / params.mPerUnit,
-  s.z / params.mPerUnit
-);
-*/
 
-
-
-// Calcula la dirección de la velocidad en metros/segundo
 const v = new THREE.Vector3(s.vx, s.vy, s.vz);
 if (v.lengthSq() > 1e-12) {
   v.normalize();
-
-  // Quaternion que lleva el eje "frente" del modelo hacia v
   const q = new THREE.Quaternion().setFromUnitVectors(modelForward, v);
   particleRoot.quaternion.copy(q);
 }
 
-
-  // agregar punto a la trayectoria
   if(drawCount < maxPoints){
     const i = drawCount * 3;
 positions[i]   = s.x / params.mPerUnit;
@@ -747,7 +643,6 @@ positions[i+2] = s.z / params.mPerUnit;
     trajGeom.attributes.position.needsUpdate = true;
   }
 
-  // guardar en historial para export/análisis
   history.push({t, ...s});
 
   updateReadouts(t, s);
@@ -757,14 +652,11 @@ function updateReadouts(curT=t, s=stateAt(t)){
   const speed = Math.hypot(s.vx, s.vy, s.vz);
   const acc = Math.hypot(s.ax, s.ay, s.az);
 
-
-// También mostramos el análisis vectorial en el bloque "readout" con el mismo formato que "instant"
 try {
   const pre = document.getElementById("readout");
   if (pre) {
     const vec = (x, y, z, n = 3) => `⟨${x.toFixed(n)}, ${y.toFixed(n)}, ${z.toFixed(n)}⟩`;
-    // Conserva la convención previa del cálculo instantáneo:
-    const axDisplay = -s.ax; // quita el signo si quieres el valor físico directo
+    const axDisplay = -s.ax; 
     const text =
       `t = ${curT.toFixed(3)} s\n` +
       `r(t) = ${vec(s.x, s.y, s.z)} m\n` +
@@ -773,13 +665,9 @@ try {
     pre.textContent = text;
   }
 } catch (e) {
-  // noop
 }
 
-
-
 }
-
 
 // --- Cálculo en t = params.targetT ---
 function computeInstant(){
@@ -788,8 +676,6 @@ function computeInstant(){
 
   const el = document.getElementById("readout");
   const vec = (x,y,z,n=3)=>`⟨${x.toFixed(n)}, ${y.toFixed(n)}, ${z.toFixed(n)}⟩`;
-
-  // ax mostrado con signo invertido (requisito previo)
   const axDisplay = -s.ax;
 
   const text =
@@ -804,18 +690,11 @@ function computeInstant(){
 }
 
 function computeTargetAnalysis(tQ = Number(params.targetT)) {
-  // 1) Obtener el estado en t objetivo
-  const s = stateAt(tQ); // Debe devolver: { x,y,z, vx,vy,vz, ax,ay,az }
-
-  // 2) Helpers
+  const s = stateAt(tQ); 
   const vec = (x,y,z,n=3)=>`⟨${x.toFixed(n)}, ${y.toFixed(n)}, ${z.toFixed(n)}⟩`;
   const speed  = Math.hypot(s.vx, s.vy, s.vz);
   const accMag = Math.hypot(s.ax, s.ay, s.az);
-
-  // Mantiene tu convención previa (ax con signo invertido). Si no la quieres, usa s.ax.
   const axDisplay = -s.ax;
-
-  // 3) Render a #instant (panel "Resultado en t objetivo")
   const el = document.getElementById("instant");
   if (el) {
     const text =
@@ -829,8 +708,6 @@ function computeTargetAnalysis(tQ = Number(params.targetT)) {
   // 4) Retornar por si quieres usar los valores en otro lado (tabla, logs, etc.)
   return { tQ, s, speed, accMag };
 }
-
-
 
 // --- Tabla hasta 2 vueltas (también equivalen a 2 "pasos" en z) ---
 function buildTableUntilNow(){
@@ -853,13 +730,11 @@ function buildTableUntilNow(){
       `<td>${toFixed(r.t, 0)}</td>` +
       `<td>${toFixed(r.x)}</td><td>${toFixed(r.y)}</td><td>${toFixed(r.z)}</td>` +
       `<td>${toFixed(r.vx)}</td><td>${toFixed(r.vy)}</td><td>${toFixed(r.vz)}</td>` +
-      `<td>${toFixed(r.ax)}</td><td>${toFixed(r.ay)}</td><td>${toFixed(r.az)}</td>`;
+      `<td>${toFixed(-r.ax)}</td><td>${toFixed(r.ay)}</td><td>${toFixed(r.az)}</td>`;
     body.appendChild(tr);
   }
   return rows;
 }
-
-
 
 //////---------------------------------------------/////////
 //////---- BLOQUE E: BUCLE PRINCIPAL---------------/////////
@@ -877,12 +752,21 @@ function animate(now){
  }
 if (mixer) mixer.update(dtReal * (params.playing ? 1 : 0));
 
-  if(params.playing && t < params.tmax){
-    // usamos dt de parámetros para control numérico
-    const steps = Math.max(1, Math.round(dtReal / Math.max(1e-6, params.dt)));
-    const fixed = dtReal / steps;
-    for(let i=0;i<steps;i++) step(fixed);
-  }
+const stopAt = Math.min(params.tmax, Number(params.targetT) || params.tmax);
+
+if (params.playing && t < stopAt) {
+  const steps = Math.max(1, Math.round(dtReal / Math.max(1e-6, params.dt)));
+  const fixed = dtReal / steps;
+  for (let i = 0; i < steps; i++) step(fixed);
+}
+
+if (params.playing && t >= stopAt) {
+  params.playing = false;
+  // Actualiza el texto del botón si existe
+  const playBtn = document.getElementById("play");
+  if (playBtn) playBtn.textContent = "⏵︎ Reanudar";
+}
+
 
   renderer.render(scene, activeCam);
   //composer.render();
@@ -898,7 +782,6 @@ updateGridScale();
 updateGridLabels();
 animate(performance.now());
 
-
 //////---------------------------------------------/////////
 //////---- BLOQUE F: EXPORTAR DATOS----------------/////////
 //////---------------------------------------------/////////  
@@ -907,11 +790,10 @@ animate(performance.now());
 function exportCSV(){
   if (history.length === 0) return;
 
-  // Genera datos en intervalos de 1s
   const rows = [];
   for (let k = 0; k <= Math.floor(t); k++) {
     const s = stateAt(k);
-    rows.push([k, s.x, s.y, s.z, s.vx, s.vy, s.vz, s.ax, s.ay, s.az].map(v => v.toFixed(3)));
+    rows.push([k, s.x, s.y, s.z, s.vx, s.vy, s.vz, -s.ax, s.ay, s.az].map(v => v.toFixed(3)));
   }
 
   const header = "t,x,y,z,vx,vy,vz,ax,ay,az\n";
